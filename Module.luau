@@ -284,8 +284,7 @@ local function FetchSecureContainer(): ScreenGui?
 end
 
 local function TweenProperty(Object: Instance, Time: number, Properties: {any}, DestroyOnEnd: boolean?)
-	print(Object.Name, type(Time))
-	local _TweenInfo = TweenInfo.new(Time)
+	local _TweenInfo = TweenInfo.new(Time or 0.25)
 
 	local _Tween = TweenService:Create(Object, _TweenInfo, Properties)
 
@@ -368,7 +367,6 @@ local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Co
 	})
 
 	ClickSound:Play()
-	print("from here")
 	task.spawn(TweenProperty, CircleMain, 0.5, {
 		Size = UDim2.fromScale(2, 10),
 		Position = GuiPosition - UDim2.fromScale(1, 5);
