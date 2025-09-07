@@ -259,7 +259,7 @@ local Themes = {
 	}
 }
 
-local function GetSecureContainer(): ScreenGui?
+local function FetchSecureContainer(): ScreenGui?
 	local HiddenGuiFunction = get_hidden_gui or gethui
 
 	if HiddenGuiFunction then
@@ -325,7 +325,7 @@ local function CreateObjectWithProperties(ClassName: string, Properties: {any}, 
 	return Object
 end
 
-local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?)
+local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Container: GuiFrame?)
 	local ClickSound = Instance.new("Sound")
 	ClickSound.SoundId = "rbxassetid://15675032796"
 	ClickSound.Parent = GuiInstance
@@ -336,7 +336,7 @@ local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?)
 	local AbsolutePosition = GuiInstance.AbsolutePosition
 	local GuiPosition = GuiInstance.Position
 	local AbsoluteSize = GuiInstance.AbsoluteSize
-	local Container = GuiInstance:FindFirstChild("DropContainer") or GuiInstance
+	local Container = Container or GuiInstance:FindFirstChild("DropContainer") or GuiInstance
 
 	local InputPosition;
 
@@ -451,9 +451,10 @@ local GuiButtons = setmetatable({}, {
 		rawset(self, Key, Value)
 
 		if typeof(Value) == "Instance" and Value:IsA("GuiButton") then
+			local Shadow = Value:FindFirstChild("DropContainer") or Value
 			ApplyCallback(Value, Value.InputBegan, function(Input)
 				if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-					BubbleClickEffect(Value, Input)
+					BubbleClickEffect(Value, Input, Shadow)
 				end
 			end)
 		end
@@ -1161,7 +1162,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
 			}, GuiButtons)
 
-			CreateObjectWithProperties("Frame", {
+			local DropContainer = CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
 				ClipsDescendants = true,
 				Parent = ButtonTemplate,
@@ -1921,7 +1922,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
-			CreateObjectWithProperties("Frame", {
+			local DropContainer = CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
 				ClipsDescendants = true,
 				Parent = SliderTemplate,
@@ -2039,7 +2040,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 
 						TweenProperty(SliderIndicatorFrame, 0.125, {Size = UDim2.new(0, 20, 1, -4), BackgroundTransparency = 0.5})
 						TweenProperty(SliderTemplate, 0.125, {BackgroundColor3 = Theme.SliderBackground})
-						BubbleClickEffect(SliderTemplate)
+						BubbleClickEffect(SliderTemplate, nil, DropContainer)
 					end
 				end)
 			end)
@@ -2179,7 +2180,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
-			CreateObjectWithProperties("Frame", {
+			local DropContainer = CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
 				ClipsDescendants = true,
 				Parent = TextBoxInit,
@@ -2274,7 +2275,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 					TextBoxInit.Text = ""
 					task.spawn(Callback, Text)
 					
-					BubbleClickEffect(TextBoxInit)
+					BubbleClickEffect(TextBoxInit, nil, DropContainer)
 				end
 
 				TweenProperty(TextboxInitStroke, 0.25, {Thickness = 1})
@@ -2716,7 +2717,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 	end
 	
 	MainFrame.Parent = MachinaScreenGui
-	MachinaScreenGui.Parent = GetSecureContainer()
+	MachinaScreenGui.Parent = FetchSecureContainer()
 	return Children, MachinaScreenGui
 end
 
