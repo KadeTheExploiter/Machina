@@ -12,12 +12,13 @@ Fluent, Open Source, Mac-OS themed Gui Library for Roblox.
 # Example code, from [there](https://github.com/KadeTheExploiter/Machina/blob/main/Examples/Example.luau)
 
 ```luau
--- For Details and Explaination, check https://github.com/KadeTheExploiter/Machina/DocumentedExample.luau
+-- For Details, check https://github.com/KadeTheExploiter/Machina/DocumentedExample.luau
 local HttpRequest = request or http_request or http and http.request or syn and syn.request
 local ModuleData = HttpRequest({Method = "GET", Url = "https://raw.githubusercontent.com/KadeTheExploiter/Machina/refs/heads/main/Module.luau"})
 local GuiLibrary = loadstring(ModuleData.Body)()
 
-local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark")
+local CustomTheme = GuiLibrary:DefineTheme({MainFrame = Color3.new(12, 12, 12)}, "Dark")
+local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark") -- If you want to use a custom theme, put the table variable in instead of a string.
 
 print(MainFrame:GetScreenGui().Parent)
 
