@@ -64,7 +64,7 @@ local LabelIcons = {
 local Themes = {
 	White = {
 		MainFrame = Color3.fromRGB(239, 239, 239),
-		MainStroke = Color3.fromRGB(126, 126, 126),
+		MainStroke = Color3.fromRGB(102, 102, 102),
 		Sidebar = Color3.fromRGB(255, 255, 255),
 		WindowButtonsFrame = Color3.fromRGB(255, 255, 255),
 		PrimaryText = Color3.fromRGB(0, 0, 0),
@@ -161,7 +161,7 @@ local Themes = {
 	},
 	Dark = {
 		MainFrame = Color3.fromRGB(35, 35, 40),
-		MainStroke = Color3.fromRGB(80, 80, 90),
+		MainStroke = Color3.fromRGB(90, 90, 100),
 		Sidebar = Color3.fromRGB(45, 45, 50),
 		WindowButtonsFrame = Color3.fromRGB(45, 45, 50),
 		PrimaryText = Color3.fromRGB(225, 225, 225),
@@ -284,6 +284,7 @@ local function FetchSecureContainer(): ScreenGui?
 end
 
 local function TweenProperty(Object: Instance, Time: number, Properties: {any}, DestroyOnEnd: boolean?)
+	print(Object.Name, type(Time))
 	local _TweenInfo = TweenInfo.new(Time)
 
 	local _Tween = TweenService:Create(Object, _TweenInfo, Properties)
@@ -325,7 +326,7 @@ local function CreateObjectWithProperties(ClassName: string, Properties: {any}, 
 	return Object
 end
 
-local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Container: GuiFrame?)
+local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Container: Frame?)
 	local ClickSound = Instance.new("Sound")
 	ClickSound.SoundId = "rbxassetid://15675032796"
 	ClickSound.Parent = GuiInstance
@@ -336,7 +337,7 @@ local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Co
 	local AbsolutePosition = GuiInstance.AbsolutePosition
 	local GuiPosition = GuiInstance.Position
 	local AbsoluteSize = GuiInstance.AbsoluteSize
-	local Container = Container or GuiInstance:FindFirstChild("DropContainer") or GuiInstance
+	local Container = Container or GuiInstance
 
 	local InputPosition;
 
@@ -367,6 +368,7 @@ local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Co
 	})
 
 	ClickSound:Play()
+	print("from here")
 	task.spawn(TweenProperty, CircleMain, 0.5, {
 		Size = UDim2.fromScale(2, 10),
 		Position = GuiPosition - UDim2.fromScale(1, 5);
@@ -446,34 +448,55 @@ local function ParseDictionary(Key: any, Value: any): InfoResult?
 	}
 end
 
+
 local GuiButtons = setmetatable({}, {
 	__newindex = function(self, Key, Value)
-		rawset(self, Key, Value)
-
-		if typeof(Value) == "Instance" and Value:IsA("GuiButton") then
-			local Shadow = Value:FindFirstChild("DropContainer") or Value
-			ApplyCallback(Value, Value.InputBegan, function(Input)
+		if typeof(Value) == "table" then
+			local Index = Value[1]
+			local Shadow = Value[2]
+			ApplyCallback(Index, Index.InputBegan, function(Input)
 				if Input.UserInputType == Enum.UserInputType.MouseButton1 then
-					BubbleClickEffect(Value, Input, Shadow)
+					BubbleClickEffect(Index, Input, Shadow)
 				end
 			end)
+			
+			table.clear(Value)
 		end
 	end
 })
-function GuiLibrary:Load(Name: string, SelectedTheme: string)
+
+function GuiLibrary:DefineTheme(Metadata: {}, InheritFrom: string?)
+	local DefinedTheme = table.clone(Themes[InheritFrom] or Themes["Dark"])
+
+	for Property, Value in Metadata do
+		if not DefinedTheme[Property] then continue end
+		if typeof(Value) ~= "Color3" then continue end
+		DefinedTheme[Property] = Value
+	end	
+
+	return DefinedTheme
+end
+
+function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 	if type(Name) ~= "string" then
 		Name = "Machina"
 		warn(`[MACHINA] Wrong entry for Name.`)
 	end
 
-	if type(SelectedTheme) ~= "string" then
-		SelectedTheme = "White"
-		warn(`[MACHINA] SelectedTheme isn't a string.`)
-	end
-
-	if SelectedTheme ~= "White" and SelectedTheme ~= "Dark" then
-		SelectedTheme = "White"
-		warn(`[MACHINA] Wrong entry for SelectedTheme.`)
+	if type(SelectedTheme) == "string" then
+		if SelectedTheme ~= "White" and SelectedTheme ~= "Dark" then
+			SelectedTheme = "White"
+			warn(`[MACHINA] Wrong entry for SelectedTheme.`)
+		end	
+	elseif type(SelectedTheme) == "table" then
+		for Index, _ in Themes.White do
+			if not SelectedTheme[Index] then
+				warn(`[MACHINA] Provided a table with not enough keys, please use GuiLibrary:DefineTheme() To create a theme.`)
+				SelectedTheme = "White"
+				
+				break;
+			end
+		end
 	end
 
 	local MinMainHeight = 300
@@ -490,7 +513,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 	local InitialSizeOnDrag: Vector2
 	local ResizeMoveConnection: RBXScriptConnection
 	local ResizeUpConnection: RBXScriptConnection
-	local Theme = Themes[SelectedTheme]
+	local Theme = type(SelectedTheme) == "table" and SelectedTheme or Themes[SelectedTheme]
 
 	local MachinaScreenGui = CreateObjectWithProperties("ScreenGui", {
 		Name = Name or "Machina",
@@ -539,6 +562,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 	CreateObjectWithProperties("UIStroke", {
 		Name = "_MainStroke",
 		Color = Theme.MainStroke,
+		Thickness = 1,
 		Parent = MainFrame
 	})
 
@@ -1146,6 +1170,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				warn(`[MACHINA] ButtonDescription is not a string.`)
 			end
 
+			local ButtonGuiButtonsEntry = {}
+
 			local ButtonTemplate = CreateObjectWithProperties("TextButton", {
 				Name = "Button" .. ButtonText,
 				Parent = TabScrollingFrame,
@@ -1160,7 +1186,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				TextColor3 = Theme.ButtonText,
 				TextSize = 14,
 				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-			}, GuiButtons)
+			}, ButtonGuiButtonsEntry)
 
 			local DropContainer = CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
@@ -1171,8 +1197,9 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				ZIndex = 3,
 				BorderSizePixel = 0, 
 				Active = true,
-			}, GuiButtons)
+			}, ButtonGuiButtonsEntry)
 
+			GuiButtons[#GuiButtons+1] = ButtonGuiButtonsEntry
 			CreateObjectWithProperties("UICorner", {
 				Name = "_ButtonCorner",
 				CornerRadius = UDim.new(0, 6),
@@ -1303,6 +1330,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				warn(`[MACHINA] ToggleDescription is not a string.`)
 			end
 
+			local ToggleGuiButtonsEntry = {}
 			local ToggleTemplate = CreateObjectWithProperties("TextButton", {
 				Name = "Toggle",
 				Parent = TabScrollingFrame,
@@ -1317,7 +1345,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				TextColor3 = Theme.PrimaryText,
 				TextSize = 14,
 				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-			}, GuiButtons)
+			}, ToggleGuiButtonsEntry)
 
 			CreateObjectWithProperties("UICorner", {
 				Name = "_ToggleCorner",
@@ -1341,8 +1369,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				ZIndex = 3,
 				BorderSizePixel = 0, 
 				Active = true,
-			}, GuiButtons)
-
+			}, ToggleGuiButtonsEntry)
+			GuiButtons[#GuiButtons+1] = ToggleGuiButtonsEntry
 			CreateObjectWithProperties("ImageLabel", {
 				Name = "_ToggleShadow",
 				Parent = ToggleTemplate,
@@ -1600,17 +1628,6 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				ZIndex = 2,
 				BorderSizePixel = 0,
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
-			}, GuiButtons)
-
-			CreateObjectWithProperties("Frame", {
-				Name = "DropContainer",
-				ClipsDescendants = true,
-				Parent = LabelTemplate,
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				ZIndex = 3,
-				BorderSizePixel = 0, 
-				Active = true,
 			})
 
 			CreateObjectWithProperties("UICorner", {
@@ -1788,6 +1805,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 			local Default = Default or 0
 			local Value = Default
 
+			local SliderGuiButtonsEntry = {}
 			local SliderTemplate = CreateObjectWithProperties("TextButton", {
 				Name = "Slider",
 				Parent = TabScrollingFrame,
@@ -1801,7 +1819,19 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				BorderColor3 = Color3.fromRGB(0, 0, 0),
 				TextColor3 = Theme.PrimaryText,
 				TextSize = 14,
-			}, GuiButtons)
+			}, SliderGuiButtonsEntry)
+
+			local DropContainer = CreateObjectWithProperties("Frame", {
+				Name = "DropContainer",
+				ClipsDescendants = true,
+				Parent = SliderTemplate,
+				Size = UDim2.fromScale(1, 1),
+				BackgroundTransparency = 1,
+				ZIndex = 3,
+				BorderSizePixel = 0, 
+				Active = true,
+			}, SliderGuiButtonsEntry)
+			GuiButtons[#GuiButtons+1] = SliderGuiButtonsEntry
 
 			CreateObjectWithProperties("UICorner", {
 				Name = "_SliderCorner",
@@ -1921,17 +1951,6 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				BorderSizePixel = 0,
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
-
-			local DropContainer = CreateObjectWithProperties("Frame", {
-				Name = "DropContainer",
-				ClipsDescendants = true,
-				Parent = SliderTemplate,
-				Size = UDim2.fromScale(1, 1),
-				BackgroundTransparency = 1,
-				ZIndex = 3,
-				BorderSizePixel = 0, 
-				Active = true,
-			}, GuiButtons)
 
 			CreateObjectWithProperties("UIStroke", {
 				Name = "_SliderHandleStroke",
@@ -2160,6 +2179,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
+			local TextBoxGuiButtonsEntry = {}
+
 			local TextBoxInit = CreateObjectWithProperties("TextBox", {
 				Name = "TextBoxInit",
 				Parent = TextboxTemplate,
@@ -2178,7 +2199,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				FontFace = Font.new("rbxassetid://12187365364", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
 				BorderSizePixel = 0,
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
-			})
+			}, TextBoxGuiButtonsEntry)
 
 			local DropContainer = CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
@@ -2189,7 +2210,9 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				ZIndex = 3,
 				BorderSizePixel = 0,
 				Active = true,
-			}, GuiButtons)
+			}, TextBoxGuiButtonsEntry)
+
+			GuiButtons[#GuiButtons+1] = TextBoxGuiButtonsEntry
 
 			CreateObjectWithProperties("UICorner", {
 				Name = "_TextboxInitCorner",
@@ -2329,6 +2352,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				warn(`[MACHINA] DropdownDescription is not a string.`)
 			end
 			
+			local DropdownGuiButtonsEntry;
+
 			local DropdownTemplate = CreateObjectWithProperties("TextButton", {
 				Name = "Dropdown",
 				Parent = TabScrollingFrame,
@@ -2343,7 +2368,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				TextColor3 = Theme.PrimaryText,
 				TextSize = 14,
 				FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal)
-			}, GuiButtons)
+			}, DropdownGuiButtonsEntry)
 
 			CreateObjectWithProperties("Frame", {
 				Name = "DropContainer",
@@ -2354,8 +2379,10 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string)
 				ZIndex = 3,
 				BorderSizePixel = 0,
 				Active = true,
-			}, GuiButtons)
+			}, DropdownGuiButtonsEntry)
 
+			GuiButtons[#GuiButtons+1] = DropdownGuiButtonsEntry
+			
 			CreateObjectWithProperties("UICorner", {
 				Name = "_DropdownCorner",
 				CornerRadius = UDim.new(0, 6),
