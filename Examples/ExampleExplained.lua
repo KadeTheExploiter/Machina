@@ -4,11 +4,18 @@ local HttpRequest = request or http_request or http and http.request or syn and 
 local ModuleData = HttpRequest({Method = "GET", Url = "https://raw.githubusercontent.com/KadeTheExploiter/Machina/refs/heads/main/Module.luau"})
 local GuiLibrary = loadstring(ModuleData.Body)()
 
--- GuiLibrary:Load(<Title: string>, <Theme: string>)
--- Avaliable themes are "Dark" and "White".
+-- GuiLibrary:DefineTheme({ [<Property: string>] = <Value: Color3> }, <InheritFrom: string>): {...}
+-- Returns a Table with the Theme metadata, InheritFrom takes either "White" or "Dark".
+-- You can create your own theme if you want, look into the "Themes" table in the source to see all the keys.
+
+local CustomTheme = GuiLibrary:DefineTheme({MainFrame = Color3.new(12, 12, 12)}, "Dark")
+
+-- GuiLibrary:Load(<Title: string>, <Theme: string | {}>)
+-- Default themes are "Dark" and "White".
+-- If using a custom theme, it must be made with the DefineTheme function, otherwise it will failsafe back to white mode (Unless you add every key manually.)
 -- Returns a table with functions and the ScreenGui.
 
-local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark")
+local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark") -- Or GuiLibrary:Load("Gui Name", CustomTheme)
 
 -- Alternatively, you can use MainFrame:GetScreenGui() to get the ScreenGui.
 
