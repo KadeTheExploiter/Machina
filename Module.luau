@@ -90,9 +90,13 @@ local Themes = {
 		ToggleImage = Color3.fromRGB(166, 103, 103),
 		SwitchIndicatorBackground = Color3.fromRGB(255, 255, 255),
 		SwitchIndicatorStroke = Color3.fromRGB(146, 91, 91),
-		TogglerBackground = Color3.fromRGB(255, 159, 159),
+		TogglerBackground = Color3.fromRGB(230, 150, 150),
 		TogglerStroke = Color3.fromRGB(146, 91, 91),
 		TogglerShadow = Color3.fromRGB(255, 0, 0),
+		ToggleBackgroundReadOnly = Color3.fromRGB(231, 231, 231),
+		ToggleTextReadOnly = Color3.fromRGB(32, 32, 32),
+		ToggleDescriptionReadOnly = Color3.fromRGB(119, 119, 119),
+
 		Label = {
 			NoteBackground = Color3.fromRGB(247, 247, 252),
 			NoteStroke = Color3.fromRGB(165, 165, 190),
@@ -188,6 +192,9 @@ local Themes = {
 		SwitchIndicatorBackground = Color3.fromRGB(70, 70, 75),
 		SwitchIndicatorStroke = Color3.fromRGB(100, 60, 60),
 		TogglerBackground = Color3.fromRGB(200, 100, 100),
+		ToggleBackgroundReadOnly = Color3.fromRGB(53, 53, 58),
+		ToggleTextReadOnly = Color3.fromRGB(156, 156, 156),
+		ToggleDescriptionReadOnly = Color3.fromRGB(119, 119, 119),
 		TogglerStroke = Color3.fromRGB(100, 60, 60),
 		TogglerShadow = Color3.fromRGB(255, 0, 0),
 
@@ -374,7 +381,7 @@ local function BubbleClickEffect(GuiInstance: GuiObject, Input: InputObject?, Co
 	}, true)
 end
 
-local function FluentTextChange(NewText: string, Object: GuiLabel, Parent: Instance): GuiLabel
+local function FluentTextChange(NewText: string, Object: GuiLabel): GuiLabel
 	if type(NewText) ~= "string" then
 		return
 	end
@@ -384,7 +391,7 @@ local function FluentTextChange(NewText: string, Object: GuiLabel, Parent: Insta
 
 	Clone.TextTransparency = 1
 	Clone.Text = NewText
-	Clone.Parent = Parent
+	Clone.Parent = Clone.Parent
 
 	TweenProperty(Clone, 0.25, {TextTransparency = 0})
 
@@ -401,6 +408,26 @@ local function ApplyCallback(Object: Instance, Signal: RBXScriptSignal, Callback
 		EndSignal:Disconnect()
 		StartSignal:Disconnect()
 	end)
+end
+
+local function CreateBaseFunctionIndex(Container: Instance, Text: Instance, Description: Instance)
+	return {
+		UpdateText = function(NewText: string)
+			local Clone = FluentTextChange(NewText, Text)
+			
+			return Clone
+		end,
+	
+		UpdateDescription = function(NewDescription: string)
+			local Clone = FluentTextChange(NewDescription, Description)
+			
+			return Clone
+		end,
+	
+		Destroy = function()
+			Container:Destroy()
+		end
+	}	
 end
 
 local function ParseDictionary(Key: any, Value: any): InfoResult?
@@ -475,7 +502,7 @@ function GuiLibrary:DefineTheme(Metadata: {}, InheritFrom: string?)
 	return DefinedTheme
 end
 
-function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
+function GuiLibrary:Load(Name: string, SelectedTheme: string | {}, Attributes: {}?)
 	if type(Name) ~= "string" then
 		Name = "Machina"
 		warn(`[MACHINA] Wrong entry for Name.`)
@@ -497,10 +524,18 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 		end
 	end
 
-	local MinMainHeight = 300
-	local MinMainWidth = 500
-	local CurrentHeight = 450
-	local CurrentWidth = 550
+	if type(Attributes) ~= "table" or type(Attributes) == "table" and (not Attributes.WindowSizeLoad or not Attributes.WindowSizeMin or not Attributes.WindowSizeMax) then
+		Attributes = { WindowSizeLoad = {}, WindowSizeMin = {}, WindowSizeMax = {} }
+	end
+
+	local MinMainWidth = Attributes.WindowSizeMin.X or Attributes.WindowSizeMin[1] or 500
+	local MinMainHeight = Attributes.WindowSizeMin.Y or Attributes.WindowSizeMin[2] or 300
+
+	local CurrentWidth = Attributes.WindowSizeLoad.X or Attributes.WindowSizeLoad[1] or 550
+	local CurrentHeight = Attributes.WindowSizeLoad.Y or Attributes.WindowSizeLoad[2] or 450
+
+	local MaxMainWidth = Attributes.WindowSizeMax.X or Attributes.WindowSizeMax[1] or 5096
+	local MaxMainHeight = Attributes.WindowSizeMax.Y or Attributes.WindowSizeMax[2] or 5096
 
 	local IsResizing = false
 	local IsInFullScreen = false
@@ -528,16 +563,18 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 
 	local PreviousLocation: UDim2
 	local PreviousSize: UDim2
-	local CenterOfTheScreen = UDim2.new(0, _AbsolutePosition.X + (_AbsoluteSize.X / 2) - 200, 0, -_AbsolutePosition.Y + (_AbsoluteSize.Y / 2) - 200 )
+
+	local CenterOfTheScreen = UDim2.new(0, _AbsolutePosition.X + (_AbsoluteSize.X / 2), 0, -_AbsolutePosition.Y + (_AbsoluteSize.Y / 2))
 
 	TempFrame:Destroy()
 
 	local MainFrame = CreateObjectWithProperties("Frame", {
 		Name = "Main",
 		-- Parent = MachinaScreenGui, (optimization trick: parent mainframe at the end best regards kade)
-		Size = UDim2.new(0, 550, 0, 450),
+
+		Size = UDim2.new(0, CurrentWidth, 0, CurrentHeight),
 		Active = false,
-		Position = CenterOfTheScreen,
+		Position = UDim2.new(0.5, -CurrentWidth/2, 0.5, -CurrentHeight/2), -- CenterOfTheScreen + UDim2.new(0, CurrentWidth/4, 0, -CurrentHeight/4),
 		BackgroundColor3 = Theme.MainFrame,
 		BorderSizePixel = 0
 	})
@@ -655,25 +692,25 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				local CurrentMousePos = UserInputService:GetMouseLocation()
 				local Delta = CurrentMousePos - InitialMousePosOnDrag
 
-				CurrentWidth = math.max(MinMainWidth, InitialSizeOnDrag.X + Delta.X)
-				CurrentHeight = math.max(MinMainHeight, InitialSizeOnDrag.Y + Delta.Y)
+				CurrentWidth = math.clamp(InitialSizeOnDrag.X + Delta.X, MinMainWidth, MaxMainWidth)
+				CurrentHeight = math.clamp(InitialSizeOnDrag.Y + Delta.Y, MinMainHeight, MaxMainHeight)
 
 				MainFrame.Size = UDim2.new(0, CurrentWidth, 0, CurrentHeight)
 			end
 		end)
 
 		ResizeUpConnection = UserInputService.InputEnded:Connect(function(Input)
-			if Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch then
-				if IsResizing then
-					IsResizing = false
-					if ResizeMoveConnection then
-						ResizeMoveConnection:Disconnect()
-						ResizeMoveConnection = nil
-					end
-					if ResizeUpConnection then
-						ResizeUpConnection:Disconnect()
-						ResizeUpConnection = nil
-					end
+			if IsResizing and (Input.UserInputType == Enum.UserInputType.MouseButton1 or Input.UserInputType == Enum.UserInputType.Touch) then
+				IsResizing = false
+
+				if ResizeMoveConnection then
+					ResizeMoveConnection:Disconnect()
+					ResizeMoveConnection = nil
+				end
+
+				if ResizeUpConnection then
+					ResizeUpConnection:Disconnect()
+					ResizeUpConnection = nil
 				end
 			end
 		end)
@@ -757,7 +794,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 		Text = "",
 		TextSize = 14,
 		TextColor3 = Theme.PrimaryText,
-		BackgroundColor3 = Color3.fromRGB(255, 66, 66),
+		BackgroundColor3 = Color3.fromRGB(238, 81, 81),
 		ClipsDescendants = true,
 		Size = UDim2.new(0, 14, 0, 14),
 		FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
@@ -783,7 +820,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 		Text = "",
 		TextSize = 14,
 		TextColor3 = Theme.PrimaryText,
-		BackgroundColor3 = Color3.fromRGB(255, 211, 75),
+		BackgroundColor3 = Color3.fromRGB(250, 212, 0),
 		Size = UDim2.new(0, 14, 0, 14),
 		FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
 		BorderSizePixel = 0, 
@@ -796,7 +833,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 		Text = "",
 		TextSize = 14,
 		TextColor3 = Theme.PrimaryText,
-		BackgroundColor3 = Color3.fromRGB(73, 217, 78),
+		BackgroundColor3 = Color3.fromRGB(73, 217, 97),
 		Size = UDim2.new(0, 14, 0, 14),
 		FontFace = Font.new("rbxasset://fonts/families/SourceSansPro.json", Enum.FontWeight.Regular, Enum.FontStyle.Normal),
 		BorderSizePixel = 0, 
@@ -1286,26 +1323,15 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 			
 			ApplyCallback(ButtonTemplate, ButtonTemplate.MouseButton1Down, Wrap)
 
-			local Extras = {}
-
-			function Extras:UpdateText(NewButtonText: string)
-				local Clone = FluentTextChange(NewButtonText, _ButtonText, ButtonTemplate)
-				_ButtonText = Clone
-			end
-
-			function Extras:UpdateDescription(NewButtonDescription: string)
-				local Clone = FluentTextChange(NewButtonDescription, _ButtonDescription, ButtonTemplate)
-				_ButtonText = Clone
-			end
-
-			function Extras:Destroy()
-				ButtonTemplate:Destroy()
+			local Extras = CreateBaseFunctionIndex(ButtonTemplate, _ButtonText, _ButtonDescription)
+			Extras.UpdateCallback = function(self: Instance, NewCallback: (...any) -> (...any))
+				Callback = NewCallback
 			end
 
 			return Extras
 		end
 
-		function Descendants:NewToggleEntry(ToggleText: string, ToggleDescription: string, DefaultState: boolean, Callback: (...any?) -> (...any?))
+		function Descendants:NewToggleEntry(ToggleText: string, ToggleDescription: string, DefaultState: boolean, Callback: (...any?) -> (...any?), MakeReadOnly: boolean?)
 			if type(Callback) ~= "function" then
 				warn(`[MACHINA] Callback is not a function, Ignoring.`)
 				
@@ -1368,7 +1394,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				BorderSizePixel = 0, 
 				Active = true,
 			}, ToggleGuiButtonsEntry)
-			GuiButtons[#GuiButtons+1] = ToggleGuiButtonsEntry
+			-- GuiButtons[#GuiButtons+1] = ToggleGuiButtonsEntry (For toggle case, we have to manually assign the gui buttons label (compatible with readonly state).)
+
 			CreateObjectWithProperties("ImageLabel", {
 				Name = "_ToggleShadow",
 				Parent = ToggleTemplate,
@@ -1481,7 +1508,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
-			_ToggleDescription = CreateObjectWithProperties("TextLabel", {
+			local _ToggleDescription = CreateObjectWithProperties("TextLabel", {
 				Name = "_ToggleDescription",
 				Parent = ToggleTemplate,
 				Text = ToggleDescription,
@@ -1499,7 +1526,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
-			_ToggleText = CreateObjectWithProperties("TextLabel", {
+			local _ToggleText = CreateObjectWithProperties("TextLabel", {
 				Name = "_ToggleText",
 				Parent = ToggleTemplate,
 				Text = ToggleText,
@@ -1528,6 +1555,8 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 					[ToggleTemplate] = {"BackgroundColor3", Theme.ToggleBackground},
 					[ToggleImage] = {"ImageColor3", ToggleImage.ImageColor3},
 					[ToggleStroke] = {"Color", ToggleStroke.Color},
+					[_ToggleText] = {"TextColor3", Theme.ButtonText},
+					[_ToggleDescription] = {"TextColor3", Theme.ButtonDescription},
 				},
 
 				On = {
@@ -1541,10 +1570,28 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 					[ToggleTemplate] = {"BackgroundColor3", Theme.ToggleBackgroundSelected},
 					[ToggleImage] = {"ImageColor3", Color3.fromRGB(123, 146, 123)},
 					[ToggleStroke] = {"Color", Color3.fromRGB(87, 134, 87)},
+					[_ToggleText] = {"TextColor3", Theme.ButtonText},
+					[_ToggleDescription] = {"TextColor3", Theme.ButtonDescription},
+				},
+				
+				ReadOnly = {
+					[SwitchIndicatorStroke] = {"Color", Color3.fromRGB(70, 70, 70)},
+					[SwitchIndicatorShadow] = {"ImageColor3", Color3.fromRGB(0, 0, 0)},
+
+					[TogglerStroke] = {"Color", Color3.fromRGB(124, 124, 124)},
+					[TogglerShadow] = {"ImageColor3", Color3.fromRGB(114, 114, 114)},
+					[TogglerFrame] = {"BackgroundColor3", Color3.fromRGB(97, 97, 97)},
+
+					[ToggleTemplate] = {"BackgroundColor3", Theme.ToggleBackgroundReadOnly},
+					[ToggleImage] = {"ImageColor3", Color3.fromRGB(124, 124, 124)},
+					[ToggleStroke] = {"Color", Color3.fromRGB(109, 109, 109)},
+					[_ToggleText] = {"TextColor3", Theme.ToggleTextReadOnly},
+					[_ToggleDescription] = {"TextColor3", Theme.ToggleDescriptionReadOnly},
 				}
 			}
 
 			local BooleanState = DefaultState or false
+			local CanBeClicked = not MakeReadOnly or true
 
 			local TransitionStartUDimSize = UDim2.new(0.5, 0, 1, 0)
 			local TransitionEndUDimSize = TogglerFrame.Size
@@ -1553,11 +1600,13 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 			local TrueUDimPosition = UDim2.new(1, -17, 0.5, 0)
 			
 			local function ToggleVisual()
+				local ThemingTable = ColorPatterns[not CanBeClicked and "ReadOnly" or (BooleanState and "On" or "Off")] 
+
 				TweenProperty(TogglerFrame, 0.125, {Size = TransitionStartUDimSize})
 				TweenProperty(TogglerFrame, 0.25, {Position = BooleanState and TrueUDimPosition or FalseUDimPosition})
 				task.delay(0.125, TweenProperty, TogglerFrame, 0.125, {Size = TransitionEndUDimSize})
 
-				for Object, Properties in ColorPatterns[BooleanState and "On" or "Off"] do
+				for Object, Properties in ThemingTable do
 					local PropertyName = Properties[1]
 					local Value = Properties[2]
 
@@ -1565,33 +1614,59 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				end
 			end
 
-			local function Wrap()
-				BooleanState = not BooleanState
-				ToggleVisual()
+			--[[ local Index = Value[1]
+			local Shadow = Value[2]
+			ApplyCallback(Index, Index.InputBegan, function(Input)
+				if Input.UserInputType == Enum.UserInputType.MouseButton1 then
+					BubbleClickEffect(Index, Input, Shadow)
+				end
+			end)
+			
+			table.clear(Value)]]
+			ToggleVisual()
 
+			ApplyCallback(ToggleTemplate, ToggleTemplate.MouseButton1Down, function(Input)
+				print(test)
+				if not CanBeClicked then
+					return
+				end
+
+				BooleanState = type(NewState) == "boolean" and NewState or not BooleanState
+				task.spawn(Callback, BooleanState)
+
+				ToggleVisual()
+			end)
+
+			local Extras = CreateBaseFunctionIndex(ToggleTemplate, _ToggleText, _ToggleDescription)
+
+			function Extras:UpdateToggleState(NewToggleState: boolean)
+				BooleanState = NewToggleState
+				ToggleVisual()
 				return task.spawn(Callback, BooleanState)
 			end
 
-			ToggleVisual()
+			function Extras:SetReadOnly(NewReadOnlyState: boolean)
+				CanBeClicked = not NewReadOnlyState
+				local ThemingTable = ColorPatterns[NewReadOnlyState and "ReadOnly" or (BooleanState and "On" or "Off")] 
+				
+				if NewReadOnlyState then
+					--ThemingTable[ToggleTemplate] = {"BackgroundColor3", }
+				end
 
-			ApplyCallback(ToggleTemplate, ToggleTemplate.MouseButton1Down, Wrap)
-
-			local Extras = {}
-
-			function Extras:Destroy()
-				ToggleTemplate:Destroy()
+				for Object, Properties in ThemingTable do
+					local PropertyName = Properties[1]	
+					local Value = Properties[2]
+					TweenProperty(Object, 0.25, {[PropertyName] = Value})
+				end
 			end
+
+			function Extras:SetReadOnlyAndState(NewReadOnlyState: boolean, NewToggleState: boolean)
+				Extras:SetReadOnly(NewReadOnlyState)
+				Extras:UpdateToggleState(NewToggleState)
+			end
+
+			Extras:SetReadOnly(MakeReadOnly)
 			
-			function Extras:UpdateText(NewToggleText: string)
-				local Clone = FluentTextChange(NewToggleText, _ToggleText, ToggleTemplate)
-				_ToggleText = Clone
-			end
-
-			function Extras:UpdateDescription(NewToggleDescription: string)
-				local Clone = FluentTextChange(NewToggleDescription, _ToggleDescription, ToggleTemplate)
-				_ToggleDescription = Clone
-			end
-
 			return Extras
 		end
 
@@ -1706,7 +1781,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				BorderColor3 = Color3.fromRGB(0, 0, 0)
 			})
 
-			local Extras = {}
+			local Extras = CreateBaseFunctionIndex(LabelTemplate, _LabelText, _LabelDescription)
 
 			function Extras:UpdatePriority(NewPriority: string)
 				if type(NewPriority) ~= "string" then
@@ -1753,20 +1828,6 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 						TweenProperty(Object, 0.5, {[Property] = Value})
 					end
 				end
-			end
-
-			function Extras:Destroy()
-				LabelTemplate:Destroy()
-			end
-
-			function Extras:UpdateText(NewLabelText: string)
-				local Clone = FluentTextChange(NewLabelText, _LabelText, LabelTemplate)
-				_LabelText = Clone
-			end
-
-			function Extras:UpdateDescription(NewLabelDescription: string)
-				local Clone = FluentTextChange(NewLabelDescription, _LabelDescription, LabelTemplate)
-				_LabelDescription = Clone
 			end
 
 			function Extras:UpdateEverything(NewLabelText: string, NewLabelDescription: string, NewPriority: string)
@@ -2017,7 +2078,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 			})
 
 
-			local TrackWidth = SliderHandleButton.AbsoluteSize.X - 24
+			local TrackWidth = SliderHandleButton.AbsoluteSize.X - 25
 
 			local _MovedSignal
 			local _ReleaseSignal
@@ -2053,11 +2114,13 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 						UpdateSliderValue(2, true)
 						_MovedSignal:Disconnect()
 						_ReleaseSignal:Disconnect()
+
 						task.wait(0.075)
 
 						TweenProperty(SliderIndicatorFrame, 0.125, {Size = UDim2.new(0, 20, 1, -4), BackgroundTransparency = 0.5})
 						TweenProperty(SliderTemplate, 0.125, {BackgroundColor3 = Theme.SliderBackground})
-						BubbleClickEffect(SliderTemplate, nil, DropContainer)
+
+						--BubbleClickEffect(SliderTemplate, nil, DropContainer)
 					end
 				end)
 			end)
@@ -2066,21 +2129,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				task.spawn(Callback, Value)
 			end)
 
-			local Extras = {}
-
-			function Extras:Destroy()
-				SliderTemplate:Destroy()
-			end
-			
-			function Extras:UpdateText(NewSliderText: string)
-				local Clone = FluentTextChange(NewSliderText, _SliderText, SliderTemplate)
-				_SliderText = Clone
-			end
-
-			function Extras:UpdateDescription(NewSliderDescription: string)
-				local Clone = FluentTextChange(NewSliderDescription, _SliderDescription, SliderTemplate)
-				_SliderDescription = Clone
-			end
+			local Extras = CreateBaseFunctionIndex(SliderTemplate, _SliderText, _SliderDescription)
 
 			function Extras:UpdateMinimum(NewMinimum: number)
 				if type(NewMinimum) ~= "number" then
@@ -2302,21 +2351,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 				TweenProperty(TextboxInitStroke, 0.25, {Thickness = 1})
 			end)
 
-			local Extras = {}
-
-			function Extras:Destroy()
-				TextboxTemplate:Destroy()
-			end
-			
-			function Extras:UpdateText(NewTextboxText: string)
-				local Clone = FluentTextChange(NewTextboxText, _TextboxText, TextboxTemplate)
-				_TextboxText = Clone
-			end
-
-			function Extras:UpdateDescription(NewTextboxDescription: string)
-				local Clone = FluentTextChange(NewTextboxDescription, _TextboxDescription, TextboxTemplate)
-				_TextboxDescription = Clone
-			end
+			local Extras = CreateBaseFunctionIndex(TextboxTemplate, _TextboxText, _TextboxDescription)
 
 			return Extras
 		end
@@ -2694,7 +2729,7 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 						task.spawn(Callback, Value)
 						IsRolledDown = false
 						
-						local Clone = FluentTextChange(Text, DropdownSelectionLabel, DropdownTemplate)
+						local Clone = FluentTextChange(Text, DropdownSelectionLabel)
 						DropdownSelectionLabel = Clone
 						DropdownContainerFrame.Visible = false
 
@@ -2710,12 +2745,9 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 			local DefaultEntry = Entries[Index]
 
 			DropdownSelectionLabel.Text = DefaultEntry.Text
-			task.spawn(Callback, DefaultEntry.Target)
+			task.delay(1, task.spawn, Callback, DefaultEntry.Target)
 
 			local Extras = {}
-			function Extras:Destroy()
-				DropdownTemplate:Destroy()
-			end
 			
 			function Extras:UpdateList(NewDropdownDictionary: {any})
 				if type(NewDropdownDictionary) ~= "table" then
@@ -2726,12 +2758,12 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 			end
 
 			function Extras:UpdateText(NewDropdownText: string)
-				local Clone = FluentTextChange(NewDropdownText, _DropdownText, DropdownTemplate)
+				local Clone = FluentTextChange(NewDropdownText, _DropdownText)
 				_DropdownText = Clone
 			end
 
 			function Extras:UpdateDescription(NewTextboxDescription: string)
-				local Clone = FluentTextChange(NewTextboxDescription, _DropdownDescription, DropdownTemplate)
+				local Clone = FluentTextChange(NewTextboxDescription, _DropdownDescription)
 				_DropdownDescription = Clone
 			end
 
@@ -2741,6 +2773,12 @@ function GuiLibrary:Load(Name: string, SelectedTheme: string | {})
 		return Descendants
 	end
 	
+	function Children:FireFunctionMultipleTimesOnTheVerySameObjectTypePleaseIgnoreThisForNowSincerelyKade(FunctionToCall: string, Entries: {}) -- undocumented for now, but will work like uh: GuiLibrary:FireFunctionMultipleTimesOnTheVerySameObjectTypePleaseIgnoreThisForNowSincerelyKade("SetReadOnly", {[Toggle1] = false, [Toggle2] = false})
+		for Index, Arguments in Entries do
+			FunctionToCall(Index, type(Arguments) == "table" and table.unpack(Arguments) or Arguments)
+		end
+	end
+
 	MainFrame.Parent = MachinaScreenGui
 	MachinaScreenGui.Parent = FetchSecureContainer()
 	return Children, MachinaScreenGui
