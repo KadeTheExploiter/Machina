@@ -10,12 +10,15 @@ local GuiLibrary = loadstring(ModuleData.Body)()
 
 local CustomTheme = GuiLibrary:DefineTheme({MainFrame = Color3.new(12, 12, 12)}, "Dark")
 
--- GuiLibrary:Load(<Title: string>, <Theme: string | {}>)
+-- GuiLibrary:Load(<Title: string>, <Theme: string | {}>, <Attributes: {}>)
 -- Default themes are "Dark" and "White".
 -- If using a custom theme, it must be made with the DefineTheme function, otherwise it will failsafe back to white mode (Unless you add every key manually.)
+-- Attributes primarly serve as Window Size properties, they are 100% optional.
 -- Returns a table with functions and the ScreenGui.
 
-local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark") -- Or GuiLibrary:Load("Gui Name", CustomTheme)
+local MainFrame, ScreenGui = GuiLibrary:Load("Gui Name", "Dark", {  -- Or GuiLibrary:Load("Gui Name", CustomTheme, {...})
+	WindowSizeLoad = {700, 500}, WindowSizeMin = {400, 400}, WindowSizeMax = {800, 800} 
+})
 
 -- Alternatively, you can use MainFrame:GetScreenGui() to get the ScreenGui.
 
@@ -49,12 +52,17 @@ local HomeButton; HomeButton = Tabs.Home:NewButtonEntry("Notify me!", "Notifies 
 	task.delay(0.25, HomeButton.UpdateText, HomeButton, "Notify me!")
 end)
 
--- TabContainer:NewToggleEntry(<Title: string?>, <Description: string?>, <Callback: (...any) -> boolean> 
+-- TabContainer:NewToggleEntry(<Title: string?>, <Description: string?>, <Callback: (...any) -> boolean>, ReadOnly: boolean?>
 -- Creates a toggle object in the container, callback returns a boolean.
 
 local HomeToggle = Tabs.Home:NewToggleEntry("Hii!!", "Toggle to explode!!", false, function(Bool: boolean)
 	print(Bool and "Checked!" or "Unchecked.")
-end)
+end) -- Add true as the last argument if you want to make it readonly instantly.
+
+-- The toggle itself has three Unique Functions.
+-- Toggle:SetReadOnly(<Boolean>), Turns the label gray and unchangable if true, reverts if false.
+-- Toggle:UpdateToggleState(<Boolean>), Updates the state directly without having to click on it.
+-- Toggle:SetReadOnlyAndState(<Boolean>, <Boolean>), updates both readonly state and boolean state at once, useful for making presets.
 
 -- TabContainer:NewLabelEntry(<Title: string>, <Description: string?>, <Priority: string?>)
 -- Creates a new Label object in the container, depending on its mode it will display differently, by default it's "Note"
