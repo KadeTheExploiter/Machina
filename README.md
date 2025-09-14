@@ -36,7 +36,9 @@ end)
 
 local HomeToggle = Tabs.Home:NewToggleEntry("Hii!!", "Toggle to explode!!", false, function(Bool: boolean)
 	print(Bool and "Checked!" or "Unchecked.")
-end)
+end, false)
+
+HomeToggle:SetReadOnly(true)
 
 local DetectionStatusLabel = Tabs.Home:NewLabelEntry(
 	"You won't be detected!", 
